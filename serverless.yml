@@ -1,0 +1,75 @@
+service: ${self:custom.${self:custom.myStage}.service}
+
+useDotenv: true
+configValidationMode: warn
+
+custom:
+  myStage: ${opt:stage, self:provider.stage}
+  dev:
+    profile: anywear
+    service: keyprr-service
+    region: us-west-2
+    env: staging
+    tracing: true
+  prune:
+    automatic: true
+    number: 3
+  cors:
+    origin: '*'
+    headers:
+      - Content-Type
+      - X-Amz-Date
+      - Authorization
+      - X-Api-Key
+      - X-Amz-Security-Token
+      - X-Amz-User-Agent
+      - X-Amzn-Trace-Id
+      - Access-Control-Allow-Headers
+      - Access-Control-Allow-Origin
+    allowCredentials: true
+    maxAge: 600
+  serverless-offline:
+    httpPort: 3001
+    websocketPort: 4000
+provider:
+  name: aws
+  runtime: nodejs14.x
+  stage: ${self:custom.myStage}
+  region: ${self:custom.${self:custom.myStage}.region}
+  profile: ${self:custom.${self:custom.myStage}.profile}
+  role: arn:aws:iam::105630669474:role/LambdaExecutionRole
+  memorySize: 512
+  timeout: 30
+  environment:
+    NODE_ENV: ${self:custom.${self:custom.myStage}.env}
+    IS_OFFLINE: ${env:IS_OFFLINE}
+    KEYPRR_SECRET: ${env:KEYPRR_SECRET}
+    stage: ${self:custom.myStage}
+    accessKeyId: ${env:accessKeyId}
+    secretAccessKey: ${env:secretAccessKey}
+
+functions:
+  vendorInfo:
+    handler: functions/keys.get
+    description: fetches a secret using a hash
+    events:
+      - http:
+          path: /keyprr/{keyid}
+          method: get
+          cors: ${self:custom.cors}
+          private: false
+  saveKey:
+    handler: functions/keys.create
+    description: stores a key in db
+    events:
+      - http:
+          path: /keyprr/create
+          method: post
+          cors: ${self:custom.cors}
+          private: false
+resources:
+  - ${file(.awsResources/resources.yml)}
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline
